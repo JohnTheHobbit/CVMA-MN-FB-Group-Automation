@@ -1,0 +1,100 @@
+# CVMA-MN Facebook Group Automation
+
+Semi-automated management of the [CVMA Minnesota Facebook group](https://www.facebook.com/groups/cvmamn) membership, integrated with Airtable, n8n, and Google Workspace.
+
+## How It Works
+
+### New Members
+1. A member is added to the organizational roster and synced to Airtable with `Member Status` = Active
+2. An n8n workflow detects the new record and sends a welcome email via Gmail
+3. The email contains:
+   - A link to request to join the Facebook group
+   - A unique link to the profile collector page (this repo, hosted on GitHub Pages)
+4. The member clicks the profile collector link and either:
+   - Logs in with Facebook (recommended) — automatically captures their FB user ID and display name
+   - Manually pastes their Facebook profile URL
+5. The data is sent to an n8n webhook which updates their Airtable record
+6. The PRO sees the member's Facebook profile in Airtable and can approve their group join request
+
+### Departing Members
+1. A member's `Member Status` changes to Inactive in Airtable (via roster sync)
+2. An n8n workflow detects the change and immediately emails the PRO
+3. The email includes the member's real name, Facebook display name, and a clickable profile link
+4. The PRO removes them from the Facebook group and updates `FB Group Status` to Removed in Airtable
+
+## What the PRO Does Manually
+
+- **Approve** Facebook group join requests (cross-reference with Airtable FB profile data)
+- **Remove** departed members from the Facebook group (using the profile link from the alert email)
+- **Update** `FB Group Status` in Airtable after approving (→ Joined) or removing (→ Removed)
+
+## Components
+
+| Component | Location | Purpose |
+|---|---|---|
+| Profile Collector | `docs/` (GitHub Pages) | Web page where members link their Facebook profile |
+| n8n Workflow 1 | n8n Cloud | Onboarding — sends welcome email to new Active members |
+| n8n Workflow 2 | n8n Cloud | Webhook — receives FB profile data from the collector page |
+| n8n Workflow 3 | n8n Cloud | Departure — emails PRO when a member becomes Inactive |
+| Airtable | Airtable Cloud | Member database with FB profile fields |
+
+## Setup
+
+### Prerequisites
+- Airtable base with member roster (synced from organizational system)
+- n8n Cloud account
+- Google Workspace account (for sending emails)
+- GitHub account (this repo hosts the profile collector via GitHub Pages)
+
+### Step-by-step
+
+1. **Airtable**: Add the required fields to your members table (see plan for field definitions):
+   - `FB User ID`, `FB Display Name`, `FB Profile URL`, `FB Group Status`, `FB Invite Sent Date`, `FB Onboarding Token`, `FB Last Modified`
+
+2. **Facebook App**: Create a Consumer app at [developers.facebook.com](https://developers.facebook.com/apps/), add Facebook Login for Web, set the site URL to your GitHub Pages URL
+
+3. **Configuration**: Update `docs/js/config.js` with your Facebook App ID and n8n webhook URL
+
+4. **Google Cloud**: Create a project, enable Gmail API, set up OAuth2 credentials for n8n
+
+5. **n8n**: Create three workflows:
+   - Onboarding (Airtable trigger → filter → generate token → Gmail send → Airtable update)
+   - Profile Receiver (Webhook → Airtable search by token → update record)
+   - Departure Alert (Airtable trigger → filter → Gmail send to PRO → Airtable update)
+
+6. **GitHub Pages**: Enable Pages in repo settings, source = `main` branch, folder = `/docs`
+
+7. **Go Live**: Switch Facebook App from Development to Live mode after testing
+
+## Airtable Field Reference
+
+| Field | Values | Updated By |
+|---|---|---|
+| `Member Status` | Active, Inactive | Roster sync |
+| `FB Group Status` | Not Invited → Invited → Joined → Pending Removal → Removed | Automation + PRO |
+| `FB User ID` | Numeric Facebook ID | Profile collector |
+| `FB Display Name` | Name from Facebook | Profile collector |
+| `FB Profile URL` | `https://facebook.com/{id}` | Profile collector |
+| `FB Invite Sent Date` | Date | Onboarding workflow |
+| `FB Onboarding Token` | Random hex string | Onboarding workflow |
+
+## Troubleshooting
+
+**Member didn't receive the welcome email**
+- Check that their Airtable record has `Member Status` = Active, `FB Group Status` = Not Invited, and a valid email
+- Check n8n execution log for Workflow 1 errors
+- Check Gmail sending limits (2,000/day for Workspace)
+
+**Facebook Login button doesn't work**
+- Verify the Facebook App ID in `config.js` is correct
+- Check that the Facebook App is in Live mode (or the tester is added in Development mode)
+- Check browser console for SDK errors
+
+**PRO didn't receive a departure notification**
+- Verify the member's record has `FB Profile URL` populated (notifications only fire if FB profile exists)
+- Check that `FB Group Status` is not already Pending Removal or Removed
+- Check n8n execution log for Workflow 3 errors
+
+**Profile collector says "invalid link"**
+- The URL must contain a `?token=` parameter. The token is generated by the onboarding workflow
+- If the member lost the email, manually set their `FB Group Status` back to Not Invited to re-trigger

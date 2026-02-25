@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVMA Minnesota - Facebook Group Setup</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app-container">
+        <header>
+            <h1>CVMA Minnesota</h1>
+            <h2>Facebook Group Membership Setup</h2>
+        </header>
+
+        <!-- State: Loading -->
+        <div id="state-loading" class="state">
+            <p>Validating your invitation&hellip;</p>
+        </div>
+
+        <!-- State: Invalid or missing token -->
+        <div id="state-invalid" class="state" style="display:none;">
+            <p>This link is invalid or has expired.</p>
+            <p>Please contact your chapter PRO if you need a new invitation link.</p>
+        </div>
+
+        <!-- State: Main form -->
+        <div id="state-main" class="state" style="display:none;">
+            <p>Welcome! To connect your membership with our Facebook group, follow the two steps below.</p>
+
+            <section id="step-join">
+                <h3>Step 1: Request to Join the Facebook Group</h3>
+                <a href="https://www.facebook.com/groups/cvmamn"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="btn btn-primary">
+                    Open CVMA-MN Facebook Group
+                </a>
+                <p class="hint">Click the &ldquo;Join Group&rdquo; button on Facebook, then come back here for Step 2.</p>
+            </section>
+
+            <section id="step-link">
+                <h3>Step 2: Link Your Facebook Profile</h3>
+
+                <div id="fb-login-section">
+                    <p><strong>Option A (Recommended):</strong> Log in with Facebook to automatically link your profile.</p>
+                    <button id="btn-fb-login" class="btn btn-facebook">
+                        Continue with Facebook
+                    </button>
+                    <p class="hint">We only access your public name and profile ID. We cannot post on your behalf or see your private information.</p>
+                </div>
+
+                <div id="manual-entry-section">
+                    <p><strong>Option B:</strong> Paste your Facebook profile URL manually.</p>
+                    <input type="url"
+                           id="manual-fb-url"
+                           placeholder="https://www.facebook.com/yourprofile"
+                           aria-label="Facebook profile URL">
+                    <button id="btn-manual-submit" class="btn btn-secondary">
+                        Submit Profile URL
+                    </button>
+                    <p class="hint">
+                        To find your profile URL: open Facebook, tap your profile picture in the top bar, then copy the URL from your browser&rsquo;s address bar.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <!-- State: Submitting -->
+        <div id="state-submitting" class="state" style="display:none;">
+            <p>Sending your information&hellip; please wait.</p>
+        </div>
+
+        <!-- State: Success -->
+        <div id="state-success" class="state" style="display:none;">
+            <h3>All Set!</h3>
+            <p>Your Facebook profile has been linked to your CVMA-MN membership.</p>
+            <p>A chapter officer will approve your Facebook group request shortly.</p>
+            <p>If you haven&rsquo;t already, make sure to
+                <a href="https://www.facebook.com/groups/cvmamn"
+                   target="_blank"
+                   rel="noopener noreferrer">request to join the group</a>.
+            </p>
+        </div>
+
+        <!-- State: Error -->
+        <div id="state-error" class="state" style="display:none;">
+            <h3>Something Went Wrong</h3>
+            <p id="error-message">An error occurred. Please try again or contact your chapter PRO.</p>
+            <button id="btn-retry" class="btn btn-secondary">Try Again</button>
+        </div>
+    </div>
+
+    <script async defer crossorigin="anonymous"
+            src="https://connect.facebook.net/en_US/sdk.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

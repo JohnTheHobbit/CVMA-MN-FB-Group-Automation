@@ -23,7 +23,82 @@
         return params.get('token');
     }
 
-    // Facebook SDK initialization callback
+    function isMobile() {
+        return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    }
+
+    // Parse key=value pairs from a URL hash fragment
+    function parseHash(hash) {
+        var params = {};
+        hash.replace(/^#/, '').split('&').forEach(function (pair) {
+            var parts = pair.split('=');
+            if (parts.length === 2) {
+                params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+            }
+        });
+        return params;
+    }
+
+    // Check if we're returning from a mobile OAuth redirect
+    function handleOAuthReturn() {
+        var hash = window.location.hash;
+        if (!hash || hash.indexOf('access_token') === -1) {
+            return false;
+        }
+
+        var params = parseHash(hash);
+        var accessToken = params.access_token;
+        var state = params.state;
+
+        // Clean up the hash to prevent re-processing on refresh
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+
+        // Recover the member token from state param, falling back to localStorage
+        memberToken = state || localStorage.getItem('cvma_member_token');
+        localStorage.removeItem('cvma_member_token');
+
+        if (!accessToken || !memberToken) {
+            showState('error');
+            document.getElementById('error-message').textContent =
+                'Facebook login completed but session data was lost. Please use the link from your email again.';
+            return true;
+        }
+
+        // Call the Graph API directly (can't rely on FB SDK being loaded after redirect)
+        showState('submitting');
+        fetch('https://graph.facebook.com/' + CONFIG.FB_API_VERSION + '/me?fields=id,name&access_token=' + encodeURIComponent(accessToken))
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Graph API returned ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (me) {
+                if (me && me.id) {
+                    submitProfile({
+                        token: memberToken,
+                        fb_user_id: me.id,
+                        fb_name: me.name,
+                        fb_profile_url: 'https://www.facebook.com/' + me.id,
+                        method: 'oauth'
+                    });
+                } else {
+                    throw new Error('No profile data returned');
+                }
+            })
+            .catch(function (err) {
+                if (CONFIG.DEBUG) {
+                    console.error('OAuth return error:', err);
+                }
+                showState('error');
+                document.getElementById('error-message').textContent =
+                    'Could not retrieve your Facebook profile. Please try again or use Option B (manual entry).';
+            });
+
+        return true;
+    }
+
+    // Facebook SDK initialization callback (used for desktop flow)
     window.fbAsyncInit = function () {
         FB.init({
             appId: CONFIG.FB_APP_ID,
@@ -37,6 +112,20 @@
     };
 
     function handleFBLogin() {
+        if (isMobile()) {
+            // Mobile: redirect to Facebook OAuth dialog (triggers native app)
+            localStorage.setItem('cvma_member_token', memberToken);
+            var oauthUrl = 'https://www.facebook.com/' + CONFIG.FB_API_VERSION + '/dialog/oauth'
+                + '?client_id=' + encodeURIComponent(CONFIG.FB_APP_ID)
+                + '&redirect_uri=' + encodeURIComponent(CONFIG.REDIRECT_URI)
+                + '&response_type=token'
+                + '&scope=public_profile'
+                + '&state=' + encodeURIComponent(memberToken);
+            window.location.href = oauthUrl;
+            return;
+        }
+
+        // Desktop: use FB JS SDK popup
         FB.login(function (response) {
             if (response.authResponse) {
                 FB.api('/me', { fields: 'id,name' }, function (me) {
@@ -107,6 +196,11 @@
     }
 
     function init() {
+        // Check if returning from a mobile OAuth redirect first
+        if (handleOAuthReturn()) {
+            return;
+        }
+
         memberToken = extractToken();
 
         if (!memberToken) {
